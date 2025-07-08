@@ -34,8 +34,6 @@
 
 #include "../ei_classifier_porting.h"
 #if EI_PORTING_STM32_CUBEAI == 1
-#include "FreeRTOS.h"
-#include "task.h"
 
 #include "main.h"
 #include <stdarg.h>
@@ -43,6 +41,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "FreeRTOS.h"
+#include "task.h"
 
 __attribute__((weak)) EI_IMPULSE_ERROR ei_run_impulse_check_canceled() {
     return EI_IMPULSE_OK;
@@ -54,16 +54,16 @@ __attribute__((weak)) EI_IMPULSE_ERROR ei_sleep(int32_t time_ms) {
 }
 
 uint64_t ei_read_timer_ms() {
-    return (uint64_t)xTaskGetTickCount();
+    return xTaskGetTickCount();
 }
 
 uint64_t ei_read_timer_us() {
-    return (uint64_t)xTaskGetTickCount() * (uint64_t)1000;
+    return xTaskGetTickCount() * 1000;
 }
 
 extern "C" size_t print_service_send(char *string, size_t size, TickType_t timeout);
 
-void ei_printf(const char *format, ...) {
+__attribute__((weak)) void ei_printf(const char *format, ...) {
    static char print_buf[128] = { 0 };
 
    va_list args;
@@ -75,6 +75,7 @@ void ei_printf(const char *format, ...) {
 	   print_service_send(print_buf, 0, 10);
    }
 }
+
 
 __attribute__((weak)) void ei_printf_float(float f) {
     float n = f;

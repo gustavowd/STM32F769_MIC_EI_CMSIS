@@ -52,7 +52,6 @@
 #include <string.h>
 #include <stddef.h>
 #include <cfloat>
-#include <cmath>
 #include "ei_vector.h"
 #include <algorithm>
 #include "numpy_types.h"

@@ -67,6 +67,10 @@ typedef struct {
     } \
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void record_wav(char *filename, uint32_t rec_time);
 
 uint32_t mic_init(void);
@@ -77,6 +81,10 @@ uint32_t mic_resume(void);
 uint32_t mic_read(void);
 uint32_t mic_read_in_float(void);
 float* get_read_float_buffer(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif /* INC_MICROPHONE_H_ */

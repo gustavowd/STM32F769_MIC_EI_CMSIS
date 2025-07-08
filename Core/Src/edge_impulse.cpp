@@ -15,9 +15,7 @@
 
 using namespace ei;
 
-SemaphoreHandle_t sem_new_data;
-
-float features[FEATURES_SIZE] = {0.0f};
+#if 0
 const float features_sim[FEATURES_SIZE] = {
 		140,
 		    160,
@@ -144029,20 +144027,6 @@ const float features_noise[FEATURES_SIZE] = {
     // copy raw features here (for example from the 'Live classification' page)
     // see https://docs.edgeimpulse.com/docs/running-your-impulse-arduino
 
-/**
- * @brief      Copy raw feature data in out_ptr
- *             Function called by inference library
- *
- * @param[in]  offset   The offset
- * @param[in]  length   The length
- * @param      out_ptr  The out pointer
- *
- * @return     0
- */
-int raw_feature_get_data(size_t offset, size_t length, float *out_ptr) {
-    memcpy(out_ptr, features + offset, length * sizeof(float));
-    return 0;
-}
 
 int raw_feature_get_data_sim(size_t offset, size_t length, float *out_ptr) {
     memcpy(out_ptr, features_sim + offset, length * sizeof(float));
@@ -144058,8 +144042,23 @@ int raw_feature_get_data_noise(size_t offset, size_t length, float *out_ptr) {
     memcpy(out_ptr, features_noise + offset, length * sizeof(float));
     return 0;
 }
+#endif
 
-extern "C" int raw_feature_set_data(float *data, uint32_t len);
+/**
+ * @brief      Copy raw feature data in out_ptr
+ *             Function called by inference library
+ *
+ * @param[in]  offset   The offset
+ * @param[in]  length   The length
+ * @param      out_ptr  The out pointer
+ *
+ * @return     0
+ */
+int raw_feature_get_data(size_t offset, size_t length, float *out_ptr) {
+    memcpy(out_ptr, features + offset, length * sizeof(float));
+    return 0;
+}
+
 static uint32_t idx = 0;
 int raw_feature_set_data(float *data, uint32_t len) {
     memcpy(&features[idx], data, len);
@@ -144070,7 +144069,11 @@ int raw_feature_set_data(float *data, uint32_t len) {
     return idx;
 }
 
-extern "C" void Task_edge_impulse(void *param);
+int raw_feature_set_data2(float *data, uint32_t len) {
+	*data = (float)len;
+
+	return 0;
+}
 
 void Task_edge_impulse(void *param){
 	ei_printf("Booting Edge Impulse Task\n\r");

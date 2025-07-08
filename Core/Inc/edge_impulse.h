@@ -15,9 +15,11 @@ extern "C" {
 #define FEATURES_SIZE			48000
 
 extern SemaphoreHandle_t sem_new_data;
+extern float features[FEATURES_SIZE];
 
 void Task_edge_impulse(void *param);
 int raw_feature_set_data(float *data, uint32_t len);
+int raw_feature_set_data2(float *data, uint32_t len);
 
 #ifdef __cplusplus
 }

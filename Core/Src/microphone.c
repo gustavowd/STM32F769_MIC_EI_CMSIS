@@ -8,13 +8,14 @@
 #include "main.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "fatfs.h"
 
 extern I2S_HandleTypeDef hi2s2;
 extern I2S_HandleTypeDef hi2s3;
 
-static int32_t sampleBuffer[MIC_SAMPLES_PER_PACKET * 2];// __attribute__((section(".I2SDMABuffer")));      // 38400 bytes (*2 because samples are 64 bit)
-//static int16_t processBuffer[MIC_SAMPLES_PER_PACKET >> 1];    // 4800 bytes (because process each half 16 bits buffer)
-static float processBufferf[MIC_SAMPLES_PER_PACKET >> 1];    // 4800 bytes * 4 (because process each half 16 bits buffer)
+static int32_t sampleBuffer[MIC_SAMPLES_PER_PACKET * 2] __attribute__((section(".dtcm_ram")));// 38400 bytes (*2 because samples are 64 bit)
+static int16_t processBuffer[MIC_SAMPLES_PER_PACKET >> 1] __attribute__((section(".dtcm_ram")));;    // 4800 bytes (because process each half 16 bits buffer)
+static float processBufferf[MIC_SAMPLES_PER_PACKET >> 1] __attribute__((section(".dtcm_ram")));;    // 4800 bytes * 4 (because process each half 16 bits buffer)
 QueueHandle_t	  mic_read_queue;
 
 uint32_t mic_init(void){
@@ -46,7 +47,7 @@ uint32_t mic_resume(void){
 	return (uint32_t)status;
 }
 
-#if 0
+#if 1
 uint32_t mic_read(void){
 	uint32_t buffer_start;
 	xQueueReceive(mic_read_queue, &buffer_start, portMAX_DELAY);
@@ -79,8 +80,9 @@ uint32_t mic_read_in_float(void){
 		// dither the LSB with a random bit
 		//int16_t sample = (data_in[0] & 0xfffffffe) | (rand() & 1);
 		int16_t sample = (int16_t)data_in[0];
+		float samplef= (float)sample;
 
-		*dest++ = sample * 10.0;     // left channel has data (20 dB gain)
+		*dest++ = samplef * 10.0;     // left channel has data (20 dB gain)
 		//*dest++ = sample;     // right channel is duplicated from the left
 		data_in += 2;
 		bytes_read += 4;
@@ -106,7 +108,7 @@ void HAL_I2S_RxCpltCallback(I2S_HandleTypeDef *hi2s) {
 	portYIELD_FROM_ISR(high_priority_task_woken);
 }
 
-#if 0
+#if 1
 void record_wav(char *filename, uint32_t rec_time)
 {
     // Use POSIX and C standard library functions to work with files.
@@ -118,20 +120,20 @@ void record_wav(char *filename, uint32_t rec_time)
 
     // First check if file exists before creating a new file.
     FILINFO finfo;
-    FIL		file;
+    //FIL		file;
     if (f_stat(filename, &finfo) == FR_OK) {
         // Delete it if it exists
         f_unlink(filename);
     }
 
     // Create new WAV file
-    if (f_open(&file, filename, (FA_OPEN_APPEND | FA_WRITE)) != FR_OK){
+    if (f_open(&SDFile, filename, (FA_OPEN_APPEND | FA_WRITE)) != FR_OK){
         return;
     }
 
     // Write the header to the WAV file
     uint32_t bytes_written = 0;
-    f_write(&file, &wav_header, sizeof(wav_header), (UINT *)&bytes_written);
+    f_write(&SDFile, &wav_header, sizeof(wav_header), (UINT *)&bytes_written);
 
     // Start recording
     mic_start();
@@ -151,14 +153,14 @@ void record_wav(char *filename, uint32_t rec_time)
         bytes_read = mic_read();
 		//TickType_t stop = xTaskGetTickCount();
 		//TickType_t start = xTaskGetTickCount();
-		f_write(&file, processBuffer, bytes_read, (UINT *)&bytes_written);
+		f_write(&SDFile, processBuffer, bytes_read, (UINT *)&bytes_written);
 		//TickType_t stop = xTaskGetTickCount();
 		flash_wr_size += bytes_read;
     }
 
     //ESP_LOGI(SDCARD_TAG, "Recording done!");
     mic_stop();
-    f_close(&file);
+    f_close(&SDFile);
 }
 
 #endif
