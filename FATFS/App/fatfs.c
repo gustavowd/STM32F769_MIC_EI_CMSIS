@@ -20,8 +20,8 @@
 
 uint8_t retSD;    /* Return value for SD */
 char SDPath[4];   /* SD logical drive path */
-FATFS SDFatFS __attribute__((section(".dtcm_ram")));;    /* File system object for SD logical drive */
-FIL SDFile __attribute__((section(".dtcm_ram")));;       /* File object for SD */
+FATFS SDFatFS __attribute__((section(".dtcm_ram")));    /* File system object for SD logical drive */
+FIL SDFile __attribute__((section(".dtcm_ram")));       /* File object for SD */
 
 /* USER CODE BEGIN Variables */
 

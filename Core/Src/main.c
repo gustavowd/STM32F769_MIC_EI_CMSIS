@@ -199,7 +199,7 @@ int main(void)
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   print_service_init(2);
-  xTaskCreate(Task_edge_impulse, "AI Edge Impulse", 5*1024, NULL, 1, NULL);
+  xTaskCreate(Task_edge_impulse, "AI Edge Impulse", 4*1024, NULL, 1, NULL);
   /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
@@ -548,7 +548,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : BUTTON_Pin */
   GPIO_InitStruct.Pin = BUTTON_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(BUTTON_GPIO_Port, &GPIO_InitStruct);
 
@@ -576,7 +576,7 @@ void mic_task(void const * argument)
 {
   /* USER CODE BEGIN 5 */
 #if 0
-	  uint32_t file_number = 10;
+	  uint32_t file_number = 0;
 	  char filename[64];
 	  uint8_t button;
 

@@ -14,8 +14,8 @@ extern I2S_HandleTypeDef hi2s2;
 extern I2S_HandleTypeDef hi2s3;
 
 static int32_t sampleBuffer[MIC_SAMPLES_PER_PACKET * 2] __attribute__((section(".dtcm_ram")));// 38400 bytes (*2 because samples are 64 bit)
-static int16_t processBuffer[MIC_SAMPLES_PER_PACKET >> 1] __attribute__((section(".dtcm_ram")));;    // 4800 bytes (because process each half 16 bits buffer)
-static float processBufferf[MIC_SAMPLES_PER_PACKET >> 1] __attribute__((section(".dtcm_ram")));;    // 4800 bytes * 4 (because process each half 16 bits buffer)
+static int16_t processBuffer[MIC_SAMPLES_PER_PACKET >> 1];    // 4800 bytes (because process each half 16 bits buffer)
+static float processBufferf[MIC_SAMPLES_PER_PACKET >> 1];   // 4800 bytes * 4 (because process each half 16 bits buffer)
 QueueHandle_t	  mic_read_queue;
 
 uint32_t mic_init(void){
