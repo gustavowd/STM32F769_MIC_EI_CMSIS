@@ -23,13 +23,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "edge_impulse.h"
-#include "microphone.h"
-#include "print_service.h"
-#include "FreeRTOS_CLI.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "edge_impulse.h"
+#include "microphone.h"
+#include "print_service.h"
+#include "filesystem_shell_commands.h"
+#include "FreeRTOS_CLI.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -162,121 +163,11 @@ static BaseType_t prvTaskStatsCommand( char *pcWriteBuffer,
     }
 }
 
-
-DIR dir;
-FILINFO Finfo;
-static BaseType_t prvLSCommand( char *pcWriteBuffer,
-                                size_t xWriteBufferLen,
-								const char *pcCommandString )
-{
-    //static BaseType_t state = 0;
-	FRESULT f_res;
-	uint32_t  p1, s1, s2;
-	FATFS   *fs;				// Pointer to file system object*/
-    char buffer[256];
-    char *path = SDPath;
-
-    //if (!state){
-        // Abre o diretório
-    	p1 = s1 = s2 = 0;
-    	f_res = f_opendir(&dir, SDPath);
-        if (f_res == FR_OK) {
-            int len = sprintf(buffer, "Conteúdo do diretório: %s\n", path);
-            strcpy(pcWriteBuffer, buffer);
-            pcWriteBuffer += len;
-            memset(buffer, 0, 256);
-            len = sprintf(buffer, "----------------------------------------\n");
-            strcpy(pcWriteBuffer, buffer);
-            pcWriteBuffer += len;
-            memset(buffer, 0, 256);
-
-            for(;;)
-			{
-				f_res = f_readdir(&dir, &Finfo);
-				if ((f_res != FR_OK) || !Finfo.fname[0]) break;
-				if (Finfo.fattrib & AM_DIR)
-				{
-					s2++;
-				} else
-				{
-					s1++;
-					p1 += Finfo.fsize;
-				}
-				memset(buffer, 0, 256);
-				len = sprintf(buffer,"%c%c%c%c%c %u/%02u/%02u %02u:%02u %9lu  %s",
-						(Finfo.fattrib & AM_DIR) ? 'D' : '-',
-						(Finfo.fattrib & AM_RDO) ? 'R' : '-',
-						(Finfo.fattrib & AM_HID) ? 'H' : '-',
-						(Finfo.fattrib & AM_SYS) ? 'S' : '-',
-						(Finfo.fattrib & AM_ARC) ? 'A' : '-',
-						(Finfo.fdate >> 9) + 1980, (Finfo.fdate >> 5) & 15, Finfo.fdate & 31,
-						(Finfo.ftime >> 11), (Finfo.ftime >> 5) & 63,
-						Finfo.fsize, &(Finfo.fname[0]));
-				strcpy(pcWriteBuffer, buffer);
-				pcWriteBuffer += len;
-
-			  Finfo.fname[0] = 0;
-
-		#if _USE_LFN
-				memset(buffer, 0, 256);
-				len = sprintf(buffer, "  %s\n\r", Finfo.fname);
-				strcpy(pcWriteBuffer, buffer);
-				pcWriteBuffer += len;
-		#else
-				printf("\n\r");
-		#endif
-			}
-
-			memset(buffer, 0, 64);
-			len = sprintf(buffer, "%4lu File(s), %lu bytes total \n\r%4lu Dir(s)", s1, p1, s2);
-			strcpy(pcWriteBuffer, buffer);
-			pcWriteBuffer += len;
-			if (f_getfree(path, (DWORD*)&p1, &fs) == FR_OK)
-			{
-				memset(buffer, 0, 64);
-				len = sprintf(buffer, ", %lu bytes free \n\r", p1 * fs->csize * 512);
-				strcpy(pcWriteBuffer, buffer);
-				pcWriteBuffer += len;
-			}
-
-			f_closedir(&dir);
-		} else {
-			sprintf(buffer, "Erro ao abrir diretório: %d\n", f_res);
-			strcpy(pcWriteBuffer, buffer);
-		}
-
-        //return pdTRUE;
-        return pdFALSE;
-        /*
-    }else{
-        state = 0;
-        strcpy(pcWriteBuffer, "\n\r");
-        return pdFALSE;
-    }
-    */
-}
-
-static BaseType_t prvMountCommand( char *pcWriteBuffer,
-                                size_t xWriteBufferLen,
-								const char *pcCommandString ){
-	char buffer[64];
-	if (f_mount(&SDFatFS, SDPath, 1) == FR_OK){
-        memset(buffer, 0, 64);
-        int len = sprintf(buffer, "SD card %s mounted!\r\n", SDPath);
-        strcpy(pcWriteBuffer, buffer);
-        pcWriteBuffer += len;
-	}else{
-
-	}
-	return pdFALSE;
-}
-
 static BaseType_t prvIACommand( char *pcWriteBuffer,
                                   size_t xWriteBufferLen,
                                   const char *pcCommandString )
 {
-	char buffer[64];
-	const char *pcParameter1;
+	const char *pcParameter1 = NULL;
 	BaseType_t xParameter1StringLength;
 
     /* Obtain the name of the source file, and the length of its name, from
@@ -287,16 +178,64 @@ static BaseType_t prvIACommand( char *pcWriteBuffer,
 	if (!strcmp(pcParameter1, "on")){
 		start_mic_task = true;
 		vTaskResume(MicAcquisitionHandle);
-		sprintf(buffer, "IA Task started!\r\n");
-		strcpy(pcWriteBuffer, buffer);
+		sprintf(pcWriteBuffer, "IA Task started!\r\n");
 	}else{
 		if (!strcmp(pcParameter1, "off")){
-			sprintf(buffer, "IA Task stopped!\r\n");
-			strcpy(pcWriteBuffer, buffer);
+			sprintf(pcWriteBuffer, "IA Task stopped!\r\n");
 			start_mic_task = false;
 		}else{
-			sprintf(buffer, "Wrong parameter!\r\n");
-			strcpy(pcWriteBuffer, buffer);
+			if (pcParameter1 != NULL){
+				uint32_t  p1, s2, cnt, size;
+				bool first_block = true;
+				char buffer[512];
+				int16_t *pbuffer;
+
+				if (f_open(&SDFile, pcParameter1, FA_READ) == FR_OK){
+					p1 = f_size(&SDFile);
+
+					uint32_t j = 0;
+					while (p1)
+					{
+						if (p1 >= sizeof(buffer))
+						{
+							cnt = sizeof(buffer);
+							p1 -= sizeof(buffer);
+						}
+						else
+						{
+							cnt = (uint16_t)p1;
+							p1 = 0;
+						}
+						if (f_read(&SDFile, buffer, cnt, (unsigned int *)&s2) != FR_OK)
+						{
+							break;
+						}else
+						{
+							if (first_block){
+								pbuffer = (int16_t *)&buffer[sizeof(wav_header_t)];
+								size = (s2 - sizeof(wav_header_t));
+								first_block = false;
+							}else{
+								pbuffer = (int16_t *)buffer;
+								size = s2;
+							}
+							for (int i=0; i<size; i += 2){
+								//features[j++] = (float)(pbuffer[i] + (pbuffer[i+1] << 8));
+								features[j++] = (float)(*pbuffer++);
+							}
+							if (cnt != s2) break;
+						}
+					}
+
+					f_close(&SDFile);
+					xSemaphoreGive(sem_new_data);
+					sprintf(pcWriteBuffer, "Initializating %s audio classification!\r\n", pcParameter1);
+				}else{
+					sprintf(pcWriteBuffer, "%s does not exist!\r\n", pcParameter1);
+				}
+			}else{
+				sprintf(pcWriteBuffer, "You need to specify a filename!\r\n");
+			}
 		}
 	}
 
@@ -305,11 +244,56 @@ static BaseType_t prvIACommand( char *pcWriteBuffer,
     return pdFALSE;
 }
 
+static BaseType_t prvAudioRecordCommand( char *pcWriteBuffer,
+                                  size_t xWriteBufferLen,
+                                  const char *pcCommandString )
+{
+	const char *filename;
+	static int state = 0;
+	BaseType_t xParameter1StringLength;
+
+    /* Obtain the name of the source file, and the length of its name, from
+       the command string. The name of the source file is the first parameter. */
+	filename = FreeRTOS_CLIGetParameter( pcCommandString,
+                                         1,
+                                         &xParameter1StringLength );
+	switch (state){
+		case 0:
+			if (filename != NULL){
+				if (start_mic_task == false){
+					(void)sprintf(pcWriteBuffer, "Recording...\r\n");
+					state = 1;
+					return pdTRUE;
+				}else{
+					(void)sprintf(pcWriteBuffer, "Microphone is already being used!\r\n");
+				}
+			}else {
+				(void)sprintf(pcWriteBuffer, "You need to specify a filename!\r\n");
+			}
+			break;
+		case 1:
+			record_wav((char *)filename, 1);
+			(void)sprintf(pcWriteBuffer, "%s recorded!\r\n", filename);
+			state = 0;
+			break;
+	}
+
+	return pdFALSE;
+}
+
 static const CLI_Command_Definition_t xIACommand =
 {
     "ia",
 	"ia: Enable or disable IA Task (parameter: on and off)\r\n",
 	prvIACommand,
+    1
+};
+
+static const CLI_Command_Definition_t xAudioRecordCommand =
+{
+    "record",
+	"record: Record 1 second of audio (parameter: file name)\r\n",
+	prvAudioRecordCommand,
     1
 };
 
@@ -321,22 +305,6 @@ static const CLI_Command_Definition_t xTasksCommand =
     0
 };
 
-static const CLI_Command_Definition_t xLsCommand =
-{
-    "ls",
-	"ls: List files into the SD card\r\n",
-	prvLSCommand,
-    0
-};
-
-static const CLI_Command_Definition_t xMountCommand =
-{
-    "mount",
-	"mount: Mount SD Card\r\n",
-	prvMountCommand,
-    0
-};
-
 void print_string(char *string, TickType_t timeout) {
 	print_service_send(string, 0, timeout);
 }
@@ -345,22 +313,22 @@ void print_char(char character, TickType_t timeout) {
 	print_service_send(&character, 1, timeout);
 }
 
-#define cmdPARAMTER_NOT_USED		( ( void * ) 0 )
-#define MAX_INPUT_LENGTH    32
-#define MAX_OUTPUT_LENGTH   4096
+#define cmdPARAMTER_NOT_USED	((void *)0)
+#define MAX_INPUT_LENGTH    	64
+#define MAX_OUTPUT_LENGTH   	3072
 
-static char pcOutputString[ MAX_OUTPUT_LENGTH ];
+static char pcOutputString[MAX_OUTPUT_LENGTH];
 static void shell_task(void *param){
 	char cRxedChar;
 	BaseType_t cInputIndex = 0;
 	BaseType_t xMoreDataToFollow;
 	/* The input and output buffers are declared static to keep them off the stack. */
-	static char pcInputString[ MAX_INPUT_LENGTH ];
+	static char pcInputString[MAX_INPUT_LENGTH];
 
-	FreeRTOS_CLIRegisterCommand( &xTasksCommand );
-	FreeRTOS_CLIRegisterCommand( &xIACommand );
-	FreeRTOS_CLIRegisterCommand( &xLsCommand );
-	FreeRTOS_CLIRegisterCommand( &xMountCommand );
+	FreeRTOS_CLIRegisterCommand(&xTasksCommand);
+	FreeRTOS_CLIRegisterCommand(&xIACommand);
+	FreeRTOS_CLIRegisterCommand(&xAudioRecordCommand);
+	install_fs_shell_commands();
 
     // Clear screen
 	print_string("\033[2J\033[H", portMAX_DELAY);

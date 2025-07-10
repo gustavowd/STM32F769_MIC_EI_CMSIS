@@ -15,7 +15,7 @@ MessageBufferHandle_t xMessageBuffer;
 SemaphoreHandle_t print_service_mutex;
 
 static void Print_Task(void *param){
-	char buffer[4096];
+	char buffer[3072];
 	size_t qtd = 0;
 	while(1)
 	{
@@ -48,7 +48,7 @@ size_t print_service_send(char *string, size_t size, TickType_t timeout){
 
 BaseType_t print_service_init(UBaseType_t uxPriority){
 	if (xMessageBuffer == NULL) {
-		xMessageBuffer = xMessageBufferCreate(4096);
+		xMessageBuffer = xMessageBufferCreate(3072);
 	}
 
 	if (print_service_mutex == NULL) {
@@ -60,6 +60,6 @@ BaseType_t print_service_init(UBaseType_t uxPriority){
 		return pdFALSE;
 	}
 
-	xTaskCreate(Print_Task, "Print Task", 1024+256, NULL, uxPriority, NULL);
+	xTaskCreate(Print_Task, "Print Task", 1024, NULL, uxPriority, NULL);
 	return pdTRUE;
 }
