@@ -144076,7 +144076,7 @@ int raw_feature_set_data2(float *data, uint32_t len) {
 }
 
 void Task_edge_impulse(void *param){
-	ei_printf("Booting Edge Impulse Task\n\r");
+	//ei_printf("Booting Edge Impulse Task\n\r");
 
     if (sizeof(features) / sizeof(float) != EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE) {
         ei_printf("The size of your 'features' array is not correct. Expected %lu items, but had %lu\n",

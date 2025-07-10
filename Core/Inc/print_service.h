@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "FreeRTOS.h"
+#include "uart_driver.h"
 
 #ifdef __cplusplus
 extern "C" {
